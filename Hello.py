@@ -19,7 +19,7 @@ def print_banner(text):
 def display_info():
     """Toon student en cursus informatie"""
     # Persoonlijke info - WIJZIG DEZE!
-    student_name = "Tim" # TODO: Jouw naam
+    student_name = "Tim Flamee" # TODO: Jouw naam
     goal = "OT Cybersecurity Officer"
     print(f"Student: {student_name}")
     print(f"Doel: {goal}")
