@@ -1,8 +1,10 @@
-def create_asset(asset_id, asset_type, ip_address, location):
+def create_asset(asset_id, asset_type, ip_address, brand, Type, location):
     asset = {
         'id': asset_id,
         'type': asset_type.upper(),
         'ip': ip_address,
+        'brand': brand,
+        'type': Type,
         'location': location,
         'status': 'active',
         'risk_level': 'unknown'
@@ -19,11 +21,11 @@ def display_assets(assets):
     print("\n" + "=" * 85)
     print(" " * 30 + "OT ASSET INVENTORY")
     print("=" * 85)
-    print(f"\n{'ID':<12} {'Type':<10} {'IP Address':<16} {'Location':<25} {'Status':<10}")
+    print(f"\n{'ID':<12} {'Type':<10} {'Brand':<15} {'IP Address':<16} {'Location':<25} {'Status':<10}")
     print("-" * 85)
 
     for asset in assets:
-        print(f"{asset['id']:<12} {asset['type']:<10} {asset['ip']:<16} "
+        print(f"{asset['id']:<12} {asset['type']:<10} {asset['brand']:<15} {asset['ip']:<16} "
               f"{asset['location']:<25} {asset['status']:<10}")
     
     print("-" * 85)
@@ -65,9 +67,9 @@ def add_asset_interactive(assets):
 def main():
     # De lijst 'assets' wordt hier lokaal aangemaakt
     assets = [
-        create_asset("PLC-001", "PLC", "192.168.1.10", "Wind Turbine 1"),
-        create_asset("PLC-002", "PLC", "192.168.1.11", "Wind Turbine 2"),
-        create_asset("HMI-001", "HMI", "192.168.1.50", "Control Room A"),
+        create_asset("PLC-001", "PLC", "192.168.1.10", "Siemens", "1500", "Wind Turbine 1"),
+        create_asset("PLC-002", "PLC", "192.168.1.11", "Rockwell Automation", "MicroLogix", "Wind Turbine 2"),
+        create_asset("HMI-001", "HMI", "192.168.1.50", "Siemens", "TP", "Control Room A"),
     ]
     
     while True:
