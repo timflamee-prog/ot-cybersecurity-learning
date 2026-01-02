@@ -70,7 +70,7 @@ def add_asset_interactive(assets):
 def main():
     # De lijst 'assets' wordt hier lokaal aangemaakt
     assets = [
-        create_asset("PLC-001", "PLC", "192.168.1.10", "Siemens", "1500", "Wind Turbine 1"),
+        create_asset("PLC-001", "PLC", "192.168.1.10", "Siemens", "S7-1500", "Wind Turbine 1"),
         create_asset("PLC-002", "PLC", "192.168.1.11", "Rockwell Automation", "MicroLogix", "Wind Turbine 2"),
         create_asset("HMI-001", "HMI", "192.168.1.50", "Siemens", "TP", "Control Room A"),
     ]
@@ -81,9 +81,9 @@ def main():
         print(" 2. Nieuwe asset toevoegen")
         print(" 3. Afsluiten")
         print(" 4. Tel kwetsbaarheden per asset type")
-        
-        choice = input("\nSelecteer optie (1-3): ").strip()
-        
+
+        choice = input("\nSelecteer optie (1-4): ").strip()
+
         if choice == '1':
             display_assets(assets)
         elif choice == '2':
