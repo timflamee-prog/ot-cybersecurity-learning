@@ -1,3 +1,6 @@
+
+from vulnerability_counter import count_vulnerabilities_by_type
+
 def create_asset(asset_id, asset_type, ip_address, brand, Type, location):
     asset = {
         'id': asset_id,
@@ -77,6 +80,7 @@ def main():
         print(" 1. Toon alle assets")
         print(" 2. Nieuwe asset toevoegen")
         print(" 3. Afsluiten")
+        print(" 4. Tel kwetsbaarheden per asset type")
         
         choice = input("\nSelecteer optie (1-3): ").strip()
         
@@ -85,7 +89,9 @@ def main():
         elif choice == '2':
             add_asset_interactive(assets)
         elif choice == '3':
-            print(f"\nTot ziens! Totaal beheerd: {len(assets)}\n")
+            print(f"\nTot ziens! Totaal beheerd: {len(assets)}\n")        
+        elif choice == '4':
+            count_vulnerabilities_by_type(assets)
             break
         else:
             print("\nOngeldige keuze.")
