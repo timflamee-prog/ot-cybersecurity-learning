@@ -11,6 +11,14 @@ except ImportError:
     VULN_COUNTER_AVAILABLE = False
     print("⚠ vulnerability_counter.py niet gevonden - CVE scan functie niet beschikbaar")
 
+# Probeer network_scanner te importeren
+try:
+    from network_scanner import NetworkScanner
+    NETWORK_SCANNER_AVAILABLE = True
+except ImportError:
+    NETWORK_SCANNER_AVAILABLE = False
+    print("⚠ network_scanner.py niet gevonden - Netwerk scan functie niet beschikbaar")
+
 def create_asset(asset_id, asset_type, ip_address, brand, model, firmware, location):
     asset = {
         'id': asset_id,
@@ -229,6 +237,183 @@ def create_excel_template(filename="assets_template.xlsx"):
     print(f"  3. Sla op als 'assets.xlsx'")
     print(f"  4. Gebruik optie 3 in het menu om te importeren")
 
+def run_active_network_scan(assets):
+    """Run actieve netwerk scan"""
+    if not NETWORK_SCANNER_AVAILABLE:
+        print("\n❌ network_scanner.py niet gevonden!")
+        print("  Zorg dat network_scanner.py in dezelfde map staat.")
+        print("  Installeer ook: pip install scapy python-snap7")
+        return
+    
+    print("\n" + "=" * 60)
+    print(" " * 15 + "🔍 ACTIEVE NETWERK SCAN")
+    print("=" * 60)
+    
+    network = input("\nNetwerk range (bijv. 192.168.1.0/24): ").strip()
+    if not network:
+        print("❌ Netwerk range is verplicht")
+        return
+    
+    print("\n⚠ Deze scan stuurt actief pakketten naar devices")
+    confirm = input("Wil je doorgaan? (j/n): ").strip().lower()
+    if confirm != 'j':
+        print("Scan geannuleerd.")
+        return
+    
+    try:
+        scanner = NetworkScanner()
+        devices = scanner.active_scan(network, timeout=2)
+        
+        if devices:
+            scanner.display_results(devices)
+            
+            # Vraag of devices moeten worden toegevoegd aan inventory
+            add = input("\nVoeg gevonden devices toe aan inventory? (j/n): ").strip().lower()
+            if add == 'j':
+                new_assets = scanner.export_to_assets(devices)
+                
+                # Check voor duplicaten
+                existing_ips = {a['ip'] for a in assets}
+                unique_assets = [a for a in new_assets if a['ip'] not in existing_ips]
+                
+                assets.extend(unique_assets)
+                print(f"✓ {len(unique_assets)} nieuwe assets toegevoegd")
+                
+                # Sla automatisch op naar Excel
+                export_to_excel(assets, "assets.xlsx")
+        else:
+            print("\n⚠ Geen OT devices gevonden in dit netwerk")
+            
+    except Exception as e:
+        print(f"\n❌ Fout tijdens scan: {e}")
+        import traceback
+        traceback.print_exc()
+
+def run_passive_network_scan(assets):
+    """Run passieve netwerk scan"""
+    if not NETWORK_SCANNER_AVAILABLE:
+        print("\n❌ network_scanner.py niet gevonden!")
+        print("  Zorg dat network_scanner.py in dezelfde map staat.")
+        print("  Installeer ook: pip install scapy python-snap7")
+        return
+    
+    print("\n" + "=" * 60)
+    print(" " * 15 + "👂 PASSIEVE NETWERK SCAN")
+    print("=" * 60)
+    
+    print("\n⚠ Deze scan vereist root/admin rechten!")
+    print("  Linux/Mac: sudo python asset_inventory.py")
+    print("  Windows: Run als Administrator")
+    
+    duration = input("\nScan duur in seconden (standaard 60): ").strip()
+    duration = int(duration) if duration else 60
+    
+    confirm = input(f"\nStart {duration}s passieve scan? (j/n): ").strip().lower()
+    if confirm != 'j':
+        print("Scan geannuleerd.")
+        return
+    
+    try:
+        scanner = NetworkScanner()
+        devices = scanner.passive_scan(duration=duration)
+        
+        if devices:
+            scanner.display_results(devices)
+            
+            # Vraag of devices moeten worden toegevoegd aan inventory
+            add = input("\nVoeg gedetecteerde devices toe aan inventory? (j/n): ").strip().lower()
+            if add == 'j':
+                new_assets = scanner.export_to_assets(devices)
+                
+                # Check voor duplicaten
+                existing_ips = {a['ip'] for a in assets}
+                unique_assets = [a for a in new_assets if a['ip'] not in existing_ips]
+                
+                assets.extend(unique_assets)
+                print(f"✓ {len(unique_assets)} nieuwe assets toegevoegd")
+                
+                # Sla automatisch op naar Excel
+                export_to_excel(assets, "assets.xlsx")
+        else:
+            print("\n⚠ Geen OT traffic gedetecteerd")
+            
+    except PermissionError:
+        print("\n❌ Onvoldoende rechten!")
+        print("  Herstart het programma als administrator/root")
+    except Exception as e:
+        print(f"\n❌ Fout tijdens scan: {e}")
+        import traceback
+        traceback.print_exc()
+
+def scan_siemens_plc(assets):
+    """Scan specifieke Siemens PLC met authenticatie"""
+    if not NETWORK_SCANNER_AVAILABLE:
+        print("\n❌ network_scanner.py niet gevonden!")
+        return
+    
+    print("\n" + "=" * 60)
+    print(" " * 15 + "🔐 SIEMENS PLC SCAN")
+    print("=" * 60)
+    
+    ip = input("\nPLC IP adres: ").strip()
+    if not ip:
+        print("❌ IP adres is verplicht")
+        return
+    
+    rack = input("Rack nummer (standaard 0): ").strip()
+    rack = int(rack) if rack else 0
+    
+    slot = input("Slot nummer (standaard 1): ").strip()
+    slot = int(slot) if slot else 1
+    
+    password = input("Password (laat leeg als geen): ").strip()
+    password = password if password else None
+    
+    try:
+        scanner = NetworkScanner()
+        plc_info = scanner.scan_siemens_with_auth(ip, password=password, rack=rack, slot=slot)
+        
+        if plc_info:
+            print("\n✓ PLC informatie succesvol opgehaald")
+            
+            # Maak asset van PLC
+            asset_id = plc_info.get('serial', f"PLC-{ip.replace('.', '-')}")
+            
+            asset = {
+                'id': asset_id,
+                'type': 'PLC',
+                'ip': ip,
+                'brand': plc_info.get('vendor', 'Siemens'),
+                'model': plc_info.get('model', 'Unknown'),
+                'firmware': plc_info.get('firmware', 'Unknown'),
+                'location': input("\nLocatie van deze PLC: ").strip() or 'Unknown',
+                'status': plc_info.get('status', 'active'),
+                'risk_level': 'unknown'
+            }
+            
+            # Check voor duplicaat
+            if any(a['id'] == asset_id for a in assets):
+                print(f"\n⚠ Asset {asset_id} bestaat al, wordt geüpdatet")
+                # Update bestaande asset
+                for i, a in enumerate(assets):
+                    if a['id'] == asset_id:
+                        assets[i] = asset
+                        break
+            else:
+                assets.append(asset)
+                print(f"\n✓ Asset {asset_id} toegevoegd")
+            
+            # Auto-save
+            export_to_excel(assets, "assets.xlsx")
+        else:
+            print("\n❌ Kon geen informatie ophalen van PLC")
+            print("  Check IP adres, rack/slot nummers en netwerk connectiviteit")
+            
+    except Exception as e:
+        print(f"\n❌ Fout tijdens PLC scan: {e}")
+        import traceback
+        traceback.print_exc()
+
 def run_vulnerability_scan(assets):
     """Run vulnerability scan op alle assets"""
     if not assets:
@@ -255,7 +440,7 @@ def run_vulnerability_scan(assets):
     
     try:
         # Run de vulnerability scan
-        vuln_counts = count_vulnerabilities_by_type(assets)
+        vuln_counts = count_vulnerabilities_by_type(assets, export_excel=True)
         
         print("\n" + "=" * 60)
         print("✓ Scan voltooid!")
@@ -264,25 +449,25 @@ def run_vulnerability_scan(assets):
         print("=" * 60)
         
     except Exception as e:
-        print(f"\n❌ Fout tijdens scan: {e}")
-        print("  Controleer of alle dependencies geïnstalleerd zijn:")
-        print("  pip install requests openpyxl")
-
-def search_asset(assets):
-    """Zoek een asset op ID"""
-    if not assets:
-        print("\nGeen assets in inventaris")
-        return
+            print(f"\n❌ Fout tijdens scan: {e}")
+            print("  Controleer of alle dependencies geïnstalleerd zijn:")
+            print("  pip install requests openpyxl")
     
-    search_term = input("\nZoek Asset ID: ").strip().upper()
-    
-    found = [a for a in assets if search_term in a['id'].upper()]
-    
-    if found:
-        print(f"\n{len(found)} asset(s) gevonden:")
-        display_assets(found)
-    else:
-        print(f"\nGeen assets gevonden met '{search_term}'")
+    def search_asset(assets):
+        """Zoek een asset op ID"""
+        if not assets:
+            print("\nGeen assets in inventaris")
+            return
+        
+        search_term = input("\nZoek Asset ID: ").strip().upper()
+        
+        found = [a for a in assets if search_term in a['id'].upper()]
+        
+        if found:
+            print(f"\n{len(found)} asset(s) gevonden:")
+            display_assets(found)
+        else:
+            print(f"\nGeen assets gevonden met '{search_term}'")
 
 def main():
     # Start met lege lijst (kan later geïmporteerd worden)
@@ -298,20 +483,23 @@ def main():
                 assets = imported
     
     while True:
-        print("\n" + "=" * 50)
-        print("    OT ASSET INVENTORY - MENU")
-        print("=" * 50)
+        print("\n" + "=" * 55)
+        print("       OT ASSET INVENTORY - MENU")
+        print("=" * 55)
         print(" 1. Toon alle assets")
-        print(" 2. Nieuwe asset toevoegen")
+        print(" 2. Nieuwe asset toevoegen (handmatig)")
         print(" 3. Importeer assets uit Excel")
         print(" 4. Exporteer assets naar Excel")
         print(" 5. Maak Excel template")
         print(" 6. Zoek asset")
         print(" 7. 🔍 Run Vulnerability Scan (CVE)")
-        print(" 8. Afsluiten")
-        print("=" * 50)
+        print(" 8. 📡 Actieve Netwerk Scan")
+        print(" 9. 👂 Passieve Netwerk Scan")
+        print(" 10. 🔐 Scan Siemens PLC (met authenticatie)")
+        print(" 11. Afsluiten")
+        print("=" * 55)
         
-        choice = input("\nSelecteer optie (1-8): ").strip()
+        choice = input("\nSelecteer optie (1-11): ").strip()
         
         if choice == '1':
             display_assets(assets)
@@ -368,11 +556,20 @@ def main():
             run_vulnerability_scan(assets)
             
         elif choice == '8':
+            run_active_network_scan(assets)
+            
+        elif choice == '9':
+            run_passive_network_scan(assets)
+            
+        elif choice == '10':
+            scan_siemens_plc(assets)
+            
+        elif choice == '11':
             print(f"\n👋 Tot ziens! Totaal beheerd: {len(assets)} assets\n")
             break
             
         else:
-            print("\n❌ Ongeldige keuze. Kies 1-8.")
+            print("\n❌ Ongeldige keuze. Kies 1-11.")
 
 # Zorg dat dit HELEMAAL links staat (geen spaties ervoor)
 if __name__ == "__main__":
